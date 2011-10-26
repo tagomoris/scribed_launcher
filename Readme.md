@@ -18,7 +18,7 @@ Start/stop scribed with commands below.
     # /etc/init.d/scribed restart
     # /etc/init.d/scribed stop
 
-You can write configuraitons of scribed runtime, to /etc/scribed_admin.conf.
+You can write configuraitons of scribed runtime, to /etc/scribed_launcher.conf.
 
 ## Configurations
 
@@ -47,6 +47,11 @@ You can write configuraitons of scribed runtime, to /etc/scribed_admin.conf.
 * log output with rotatelogs
 * if you want to use rotatelogs, set path of rotatelogs (such as: /usr/local/apache2/bin/rotatelogs)
 * default: none (DO NOT USE rotatelogs)
+
+### ROTATELOGS_ARGS
+* arguments of rotatelogs
+* see `man rotatelogs`
+* default: 86400
 
 * * * * *
 
