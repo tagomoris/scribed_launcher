@@ -1,112 +1,107 @@
 #!/bin/bash
 
-if [ ! -r /etc/scribe_admin.conf ]; then
-    echo "Config file does not exists: /etc/scribe_admin.conf"
+if [ ! -r /etc/scribed_launcher.conf ]; then
+    echo "Config file does not exists: /etc/scribed_launcher.conf"
     exit 1
 fi
-#TODO rewrite all
-source /etc/scribeline.conf
 
-logfile=/var/log/scribe_line.log
-scribe_line_sh=/usr/local/scribe_line/scribe_line.sh
-scribe_line_py=/usr/local/scribe_line/scribe_line.py
+prog="scribed"
+install_path=/usr/local/scribed_launcher
 
-prog=scribeline
-lockfile=/var/run/scribe_line.run
+scribed_path=/usr/local/bin/scribed
+config_file=/etc/scribed.conf
+username="root"
+classpath=
+logpath=/var/log/scribe_line.log
+rotatelogs=
+rotatelogs_args="86400"
+
+nohup_path=$(which nohup)
+# read configurations
+
+# SCRIBED_PATH=/usr/local/bin/scribed
+# CONFIG_FILE=/etc/scribed.conf
+# USERNAME=root
+# CLASSPATH=
+# LOGPATH=/var/log/scribed.log
+# ROTATELOGS=
+# ROTATELOGS_ARGS=86400
+. /etc/scribed_launcher.conf
+
+[ -x "$SCRIBED_PATH" ] && scribed_path="$SCRIBED_PATH"
+[ -r "$CONFIG_FILE" ] && config_file="$CONFIG_FILE"
+if [ -n "$USERNAME" ] ; then
+    cat /etc/passwd | awk -F: '{print $1;}' | grep -q "$USERNAME"
+    if [ $? -ne 0 ]; then
+        echo "USERNAME $USERNAME doesn't exits"
+        exit 1
+    fi
+    username="$USERNAME"
+fi
+if [ -n "$CLASSPATH" ] ; then
+    CLASSPATH_PATTERNS=$(echo "$CLASSPATH" | sed -e 's/:/ /g')
+    classpath=`ls -1 $CLASSPATH_PATTERNS | perl -e '@jars=<STDIN>;chomp @jars;print join(":",@jars);'`
+fi
+[ -n "$LOGPATH" ] && logpath="$LOGPATH"
+[ -x "$ROTATELOGS" ] && rotatelogs="$ROTATELOGS"
+[ -n "$ROTATELOGS_ARGS" ] && rotatelogs_args="$ROTATELOGS_ARGS"
+
+logdir=$(dirname $LOGPATH)
+[ ! -d $logdir ] && mkdir -p $logdir
+
+if [ ! -r "$config_file" ] ; then
+    echo "scribed Config file does not exists: $config_file"
+    exit 1
+fi    
+scribed_port=$(egrep -v '^[[:space:]]#' "$config_file" | grep '^port=' | head -1 | sed -e 's/^port=//')
+if [ x"$scribed_port" = 'x' ] ; then
+    scribed_port=1463
+fi
 
 RETVAL=0
 
-CMD=$scribe_line_sh
-SERVERS=""
-NOHUPPATH="/usr/bin/nohup"
-
-categories=()
-logfilepaths=()
-items=0
-
-lines=$(echo "$LOGS" | wc -l)
-for (( i = 0; i < $lines; i++ )); do
-    j=$((i + 1))
-    line=$(echo "$LOGS" | head -n $j | tail -1)
-    if echo "$line" | egrep -q '^[[:space:]]*(#|$)'; then
-        continue
-    fi
-    categories[$items]=$(echo $line | awk '{print $1};')
-    logfilepaths[$items]=$(echo $line | awk '{print $2};')
-    items=$((items + 1))
-done
-
-if [ $PYTHONPATH ]; then
-    CMD="$scribe_line_sh -p $PYTHONPATH"
-fi
-if [ $SECONDARY_SERVER ]; then
-    SERVERS="$PRIMARY_SERVER $SECONDARY_SERVER"
-else
-    SERVERS=$PRIMARY_SERVER
-fi
+proc_pids=$(pgrep -n $prog)
 
 start() {
-    echo -n $"Starting $prog: "
-    if [ x"$RUN" != "xtrue" ]; then
-        echo "configured not to run."
-        RETVAL=0
-        return $RETVAL
+    if [ -n "$proc_pids" ] ; then
+        echo "scribed process already running, pid: $proc_pids"
+        exit 1
     fi
-    if [ -f $lockfile ]; then
-        echo "already running."
-        RETVAL=1
-        return $RETVAL
+    echo -n "Starting $prog: "
+
+    if [ -z "$rotatelogs" ] ; then
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed" > "$logpath" &
+    else
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed" | "$rotatelogs" "$logpath" $rotatelogs_args &
     fi
-    for (( i = 0; i < $items; i++ )); do
-        $NOHUPPATH $CMD ${categories[$i]} ${logfilepaths[$i]} $SERVERS >> $logfile &
-    done
     sleep 1
-    procs=`ps auxww | grep $scribe_line_py | grep -v grep | wc -l`
-    if [ $procs != $items ]; then
+    pid=$(pgrep -n $prog)
+    if [ -z "$pid" ]; then
         echo "not started correctly."
         RETVAL=1
     else
-        echo "ok."
+        echo "ok, pid $pid."
         RETVAL=0
     fi
-    [ $RETVAL = 0 ] && touch ${lockfile}
     return $RETVAL
 }
 stop() {
     echo -n $"Stopping $prog: "
-    ps -ef | grep $scribe_line_sh | grep -v grep | awk '{print $2}' | xargs echo | sed -e 's/ /,/g' | while read x; do ps -f --pid $x --ppid $x; done | awk '{print $2;}' | grep -v PID | xargs kill -TERM
+    $install_path/bin/scribe_ctrl stop $scribed_port
     sleep 1
-    RETVAL=`ps auxww | grep $scribe_line_py | grep -v grep | wc -l`
-    if [ $RETVAL = 0 ]; then
-        rm -f ${lockfile}
-        echo "ok."
+    pid=$(pgrep -n $prog)
+    if [ -n "$pid" ]; then
+        echo "not stopped correctly, pid $pid"
+        RETVAL=1
     else
-        echo "failed."
+        echo "ok."
+        RETVAL=0
     fi
-    return $RETVAL
-}
-reload() {
-    echo -n $"Reloading $prog: "
-    ps auxww | grep $scribe_line_py | grep -v grep | awk '{print $2}' | xargs kill -HUP
-    echo "reset connections."
-    echo "To run with new config file, do 'restart'."
-    RETVAL=0
     return $RETVAL
 }
 status() {
-    echo -n "Configured logs for $prog: $items, "
-    procs=`ps auxww | grep $scribe_line_py | grep -v grep | wc -l`
-    if [ $procs != $items ]; then
-        echo "not running correctly."
-        RETVAL=1
-    else
-        if [ $items = 0 ]; then
-            echo "ok."
-        else
-            echo "running."
-        fi
-        RETVAL=0
-    fi
+    $install_path/bin/scribe_ctrl status $scribed_port
+    RETVAL=$?
     return $RETVAL
 }
 
@@ -123,11 +118,8 @@ case "$1" in
   restart)
         stop && start
         ;;
-  reload)
-        reload
-        ;;
   *)
-        echo $"Usage: $prog {start|stop|restart|reload|status}"
+        echo $"Usage: $prog {start|stop|restart|status}"
         exit 1
 esac
 
