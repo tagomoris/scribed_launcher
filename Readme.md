@@ -1,6 +1,6 @@
-# scribeline
+# scribed launcher
 
-* http://github.com/tagomoris/scribed_admin
+* http://github.com/tagomoris/scribed_launcher
 
 ## DESCRIPTION
 
@@ -8,7 +8,7 @@ Init script (start-stop script) and misc for facebook scribed. You must install 
 
 ## INSTALL
 
-First, build/install scribed, and do `make install`. Path of scribed is read when install launched.
+First, build/install scribed, and clone repository, and do `make install`. Path of scribed is read when install launched.
 
 ## Run
 
