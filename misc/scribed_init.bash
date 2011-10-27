@@ -6,13 +6,13 @@ if [ ! -r /etc/scribed_launcher.conf ]; then
 fi
 
 prog="scribed"
-install_path=/usr/local/scribed_launcher
+install_dir=/usr/local/scribed_launcher
 
 scribed_path=/usr/local/bin/scribed
 config_file=/etc/scribed.conf
 username="root"
 classpath=
-logpath=/var/log/scribe_line.log
+logpath=/var/log/scribed.log
 rotatelogs=
 rotatelogs_args="86400"
 
@@ -60,7 +60,7 @@ fi
 
 RETVAL=0
 
-proc_pids=$(pgrep -n $prog)
+proc_pids=$(ps axuww | grep $prog | grep -v grep | grep -v /etc/init.d | awk '{print $2;}')
 
 start() {
     if [ -n "$proc_pids" ] ; then
@@ -70,12 +70,12 @@ start() {
     echo -n "Starting $prog: "
 
     if [ -z "$rotatelogs" ] ; then
-        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed" > "$logpath" &
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" > "$logpath" &
     else
-        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed" | "$rotatelogs" "$logpath" $rotatelogs_args &
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" | "$rotatelogs" "$logpath" $rotatelogs_args &
     fi
     sleep 1
-    pid=$(pgrep -n $prog)
+    pid=$(ps axuww | grep $prog | grep -v grep | grep -v /etc/init.d | awk '{print $2;}')
     if [ -z "$pid" ]; then
         echo "not started correctly."
         RETVAL=1
@@ -87,9 +87,9 @@ start() {
 }
 stop() {
     echo -n $"Stopping $prog: "
-    $install_path/bin/scribe_ctrl stop $scribed_port
+    $install_dir/bin/scribe_ctrl stop $scribed_port
     sleep 1
-    pid=$(pgrep -n $prog)
+    pid=$(ps axuww | grep $prog | grep -v grep | grep -v /etc/init.d | awk '{print $2;}')
     if [ -n "$pid" ]; then
         echo "not stopped correctly, pid $pid"
         RETVAL=1
@@ -100,7 +100,7 @@ stop() {
     return $RETVAL
 }
 status() {
-    $install_path/bin/scribe_ctrl status $scribed_port
+    $install_dir/bin/scribe_ctrl status $scribed_port
     RETVAL=$?
     return $RETVAL
 }
