@@ -70,9 +70,9 @@ start() {
     echo -n "Starting $prog: "
 
     if [ -z "$rotatelogs" ] ; then
-        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" > "$logpath" &
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" "$config_file" > "$logpath" &
     else
-        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" | "$rotatelogs" "$logpath" $rotatelogs_args &
+        sudo -u "$username" CLASSPATH="$classpath" -i $nohup_path "$scribed_path" "$config_file" | "$rotatelogs" "$logpath" $rotatelogs_args &
     fi
     sleep 1
     pid=$(ps axuww | grep $prog | grep -v grep | grep -v /etc/init.d | awk '{print $2;}')
