@@ -36,7 +36,7 @@ You can write configuraitons of scribed runtime, to /etc/scribed_launcher.conf.
 
 ### CLASSPATH
 * CLASSPATH pattern for scribed process
-* `scribed_admin` extracts file globs (such as: CLASSPATH=/usr/local/hadoop/lib/*.jar:/usr/local/hive/lib/*.jar)
+* `scribed_admin` extracts file globs (such as: CLASSPATH=/usr/local/hadoop/lib/\*.jar:/usr/local/hive/lib/\*.jar)
 * default: none
 
 ### LOGPATH
